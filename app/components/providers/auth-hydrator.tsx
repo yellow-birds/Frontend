@@ -1,0 +1,14 @@
+"use client";
+
+import { useEffect } from "react";
+import { useAuthStore } from "~/store/auth.store";
+
+/**
+ * Restores auth state from localStorage on first client render.
+ * Renders nothing — purely a side-effect component.
+ */
+export function AuthHydrator() {
+  const hydrate = useAuthStore((s) => s.hydrate);
+  useEffect(() => { hydrate(); }, [hydrate]);
+  return null;
+}
