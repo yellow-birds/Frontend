@@ -1,10 +1,11 @@
 import { Outlet, redirect } from "react-router";
 import { AdminSidebar } from "~/components/admin/admin-sidebar";
 import { QueryProvider } from "~/components/providers/query-provider";
-import { isAdmin } from "~/lib/auth";
+import { getToken, isAdmin } from "~/lib/auth";
 
 export function clientLoader() {
-  if (!isAdmin()) throw redirect("/login");
+  if (!getToken()) throw redirect("/login");
+  if (!isAdmin()) throw redirect("/merchandise");
   return null;
 }
 

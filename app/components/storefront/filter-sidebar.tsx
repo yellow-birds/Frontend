@@ -1,31 +1,8 @@
 import { useSearchParams } from "react-router";
 import { ChevronDown } from "lucide-react";
 import { useState } from "react";
-
-const CATEGORIES = [
-  "T-shirts & Polos",
-  "Hoodies & Jackets",
-  "Jerseys & Sportswear",
-  "Uniforms & Workwear",
-  "Bottles & Mugs",
-  "Caps & Hats",
-  "Bags & Backpacks",
-  "Office & Stationery",
-  "Boxes & Packaging",
-  "Travel & Tech",
-  "Corporate Gifting",
-  "Home & Wellness",
-  "Printing Materials",
-  "Eco-friendly",
-  "Promotional Giveaways",
-  "Pants & Shorts",
-  "Pet Merch",
-  "Kids & School",
-  "Stickers & Labels",
-  "Business Cards",
-  "Tradeshows & Exhibitions",
-  "Food & Candy",
-];
+import { useQuery } from "@tanstack/react-query";
+import { categoriesQuery } from "~/queries/categories";
 
 const COLORS = [
   { name: "Beige", hex: "#F5F5DC" },
@@ -66,12 +43,6 @@ const COLORS = [
   { name: "Yellow", hex: "#FACC15" },
 ];
 
-const PRICE_RANGES = [
-  { label: "Under $25", min: 0, max: 25 },
-  { label: "$25 – $50", min: 25, max: 50 },
-  { label: "$50 – $100", min: 50, max: 100 },
-  { label: "Over $100", min: 100, max: undefined },
-];
 
 function Section({
   title,
@@ -102,11 +73,10 @@ function Section({
 export function FilterSidebar() {
   const [params, setParams] = useSearchParams();
   const [showAllColors, setShowAllColors] = useState(false);
+  const { data: categories = [] } = useQuery(categoriesQuery);
 
   const activeCategory = params.get("category");
   const activeColors = params.getAll("colors");
-  const minPrice = params.get("minPrice");
-  const maxPrice = params.get("maxPrice");
 
   function setCategory(cat: string) {
     const next = new URLSearchParams(params);
@@ -115,32 +85,24 @@ export function FilterSidebar() {
     } else {
       next.set("category", cat);
     }
-    next.set("page", "0");
+    next.set("page", "1");
     setParams(next);
   }
 
-  function toggleColor(color: string) {
+  function toggleColor(hex: string) {
     const next = new URLSearchParams(params);
     const current = next.getAll("colors");
     next.delete("colors");
-    if (current.includes(color)) {
-      current.filter((c) => c !== color).forEach((c) => next.append("colors", c));
+    if (current.includes(hex)) {
+      current.filter((c) => c !== hex).forEach((c) => next.append("colors", c));
     } else {
-      [...current, color].forEach((c) => next.append("colors", c));
+      [...current, hex].forEach((c) => next.append("colors", c));
     }
-    next.set("page", "0");
+    next.set("page", "1");
     setParams(next);
   }
 
-  function setPrice(min?: number, max?: number) {
-    const next = new URLSearchParams(params);
-    min !== undefined ? next.set("minPrice", String(min)) : next.delete("minPrice");
-    max !== undefined ? next.set("maxPrice", String(max)) : next.delete("maxPrice");
-    next.set("page", "0");
-    setParams(next);
-  }
-
-  const hasFilters = activeCategory || activeColors.length > 0 || minPrice || maxPrice;
+  const hasFilters = activeCategory || activeColors.length > 0;
   const visibleColors = showAllColors ? COLORS : COLORS.slice(0, 24);
 
   return (
@@ -161,52 +123,53 @@ export function FilterSidebar() {
         {/* Category */}
         <Section title="Category">
           <div className="max-h-64 overflow-y-auto pr-1 space-y-0.5">
-            {CATEGORIES.map((cat) => (
-              <label key={cat} className="flex items-center gap-2.5 py-1.5 cursor-pointer group">
+            {categories.map((cat) => (
+              <label key={cat.id} className="flex items-center gap-2.5 py-1.5 cursor-pointer group">
                 <input
                   type="checkbox"
-                  checked={activeCategory === cat}
-                  onChange={() => setCategory(cat)}
+                  checked={activeCategory === cat.name}
+                  onChange={() => setCategory(cat.name)}
                   className="h-4 w-4 rounded border-gray-300 cursor-pointer accent-yellow-400"
                 />
-                <span className={`text-sm transition-colors leading-tight ${activeCategory === cat ? "text-gray-900 font-semibold" : "text-gray-600 group-hover:text-gray-900"}`}>
-                  {cat}
+                <span className={`text-sm transition-colors leading-tight ${activeCategory === cat.name ? "text-gray-900 font-semibold" : "text-gray-600 group-hover:text-gray-900"}`}>
+                  {cat.name}
                 </span>
               </label>
             ))}
+            {categories.length === 0 && (
+              <p className="text-xs text-gray-400 py-2">No categories yet.</p>
+            )}
           </div>
         </Section>
 
         {/* Color */}
         <Section title="Color">
           <div className="grid grid-cols-6 gap-1.5 pt-1">
-            {visibleColors.map((c) => (
-              <button
-                key={c.name}
-                title={c.name}
-                onClick={() => toggleColor(c.name)}
-                className={`relative h-7 w-7 rounded-full border-2 transition-all hover:scale-110 ${
-                  activeColors.includes(c.name)
-                    ? "border-yellow-400 scale-110 shadow-md"
-                    : c.hex === "#F9FAFB" || c.hex === "#F5F5DC" || c.hex === "#D3D3D3" || c.hex === "#F5DEB3"
-                    ? "border-gray-300 hover:border-gray-500"
-                    : "border-transparent hover:border-gray-400"
-                }`}
-                style={{ backgroundColor: c.hex }}
-              >
-                {activeColors.includes(c.name) && (
-                  <span className="absolute inset-0 flex items-center justify-center">
-                    <span
-                      className={`h-1.5 w-1.5 rounded-full shadow-sm ${
-                        c.hex === "#F9FAFB" || c.hex === "#FACC15" || c.hex === "#FFD700"
-                          ? "bg-gray-800"
-                          : "bg-white"
-                      }`}
-                    />
-                  </span>
-                )}
-              </button>
-            ))}
+            {visibleColors.map((c) => {
+              const active = activeColors.includes(c.hex);
+              const isLight = ["#F9FAFB", "#F5F5DC", "#D3D3D3", "#F5DEB3", "#FACC15", "#FFD700", "#90EE90"].includes(c.hex);
+              return (
+                <button
+                  key={c.hex}
+                  title={c.name}
+                  onClick={() => toggleColor(c.hex)}
+                  className={`relative h-7 w-7 rounded-full border-2 transition-all hover:scale-110 ${
+                    active
+                      ? "border-yellow-400 scale-110 shadow-md"
+                      : isLight
+                      ? "border-gray-300 hover:border-gray-500"
+                      : "border-transparent hover:border-gray-400"
+                  }`}
+                  style={{ backgroundColor: c.hex }}
+                >
+                  {active && (
+                    <span className="absolute inset-0 flex items-center justify-center">
+                      <span className={`h-1.5 w-1.5 rounded-full shadow-sm ${isLight ? "bg-gray-800" : "bg-white"}`} />
+                    </span>
+                  )}
+                </button>
+              );
+            })}
           </div>
           {!showAllColors && COLORS.length > 24 && (
             <button
@@ -216,58 +179,36 @@ export function FilterSidebar() {
               + {COLORS.length - 24} more colors
             </button>
           )}
-          {activeColors.length > 0 && (
-            <p className="text-xs text-gray-500 mt-2 leading-relaxed">{activeColors.join(", ")}</p>
-          )}
-        </Section>
-
-        {/* Price */}
-        <Section title="Price Range">
-          {PRICE_RANGES.map((r) => {
-            const active =
-              params.get("minPrice") === String(r.min) &&
-              (r.max === undefined ? !params.has("maxPrice") : params.get("maxPrice") === String(r.max));
-            return (
-              <label key={r.label} className="flex items-center gap-2.5 py-1.5 cursor-pointer group">
-                <input
-                  type="radio"
-                  name="price"
-                  checked={active}
-                  onChange={() => setPrice(r.min, r.max)}
-                  className="h-4 w-4 border-gray-300 accent-yellow-400 cursor-pointer"
-                />
-                <span className={`text-sm transition-colors ${active ? "text-gray-900 font-semibold" : "text-gray-600 group-hover:text-gray-900"}`}>
-                  {r.label}
-                </span>
-              </label>
-            );
-          })}
         </Section>
 
         {/* Sort */}
         <Section title="Sort By" defaultOpen={false}>
-          {[
-            { value: "", label: "Default" },
-            { value: "price_asc", label: "Price: Low to High" },
-            { value: "price_desc", label: "Price: High to Low" },
-            { value: "newest", label: "Newest First" },
-            { value: "best_seller", label: "Best Sellers" },
-          ].map((opt) => (
-            <label key={opt.value} className="flex items-center gap-2.5 py-1.5 cursor-pointer group">
-              <input
-                type="radio"
-                name="sort"
-                checked={(params.get("sort") ?? "") === opt.value}
-                onChange={() => {
-                  const next = new URLSearchParams(params);
-                  opt.value ? next.set("sort", opt.value) : next.delete("sort");
-                  setParams(next);
-                }}
-                className="h-4 w-4 border-gray-300 accent-yellow-400 cursor-pointer"
-              />
-              <span className="text-sm text-gray-600 group-hover:text-gray-900 transition-colors">{opt.label}</span>
-            </label>
-          ))}
+          <div className="flex flex-col gap-2 pt-1">
+            {[
+              { value: "", label: "Default" },
+              { value: "newest", label: "Newest First" },
+              { value: "best_seller", label: "Best Sellers" },
+            ].map((opt) => {
+              const active = (params.get("sort") ?? "") === opt.value;
+              return (
+                <button
+                  key={opt.value}
+                  onClick={() => {
+                    const next = new URLSearchParams(params);
+                    opt.value ? next.set("sort", opt.value) : next.delete("sort");
+                    setParams(next);
+                  }}
+                  className={`w-full text-left px-3 py-2.5 rounded-xl text-sm font-semibold border transition-colors ${
+                    active
+                      ? "bg-yellow-400 border-yellow-400 text-black"
+                      : "border-gray-200 text-gray-600 hover:border-yellow-400 hover:text-gray-900"
+                  }`}
+                >
+                  {opt.label}
+                </button>
+              );
+            })}
+          </div>
         </Section>
       </div>
     </aside>

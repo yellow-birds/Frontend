@@ -1,7 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Loader2 } from "lucide-react";
 import { api } from "~/lib/api";
-import type { PaginatedResponse, User, UserRole } from "~/types";
+import type { User, UserRole } from "~/types";
 
 export function meta() {
   return [{ title: "Users — yellowbirds Admin" }];
@@ -17,12 +17,12 @@ export default function AdminUsersPage() {
 
   const { data, isLoading } = useQuery({
     queryKey: ["admin", "users"],
-    queryFn: () => api.get<PaginatedResponse<User>>("/admin/users"),
+    queryFn: () => api.get<User[]>("/api/users"),
   });
 
   const { mutate: changeRole } = useMutation({
     mutationFn: ({ userId, role }: { userId: string; role: UserRole }) =>
-      api.patch(`/admin/users/${userId}/role`, { role }),
+      api.patch(`/api/users/${userId}/role`, { role }),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ["admin", "users"] }),
   });
 
@@ -40,13 +40,13 @@ export default function AdminUsersPage() {
                 <th className="text-left px-4 py-3 font-medium">Name</th>
                 <th className="text-left px-4 py-3 font-medium">Email</th>
                 <th className="text-left px-4 py-3 font-medium">Role</th>
-                <th className="text-left px-4 py-3 font-medium">Joined</th>
+                <th className="text-left px-4 py-3 font-medium">Status</th>
               </tr>
             </thead>
             <tbody className="divide-y">
-              {data?.data.map((user) => (
+              {data?.map((user) => (
                 <tr key={user.id} className="hover:bg-muted/20 transition-colors">
-                  <td className="px-4 py-3 font-medium">{user.fullName}</td>
+                  <td className="px-4 py-3 font-medium">{user.firstName} {user.lastName}</td>
                   <td className="px-4 py-3 text-muted-foreground">{user.email}</td>
                   <td className="px-4 py-3">
                     <select
@@ -58,7 +58,7 @@ export default function AdminUsersPage() {
                       <option value="ADMIN">ADMIN</option>
                     </select>
                   </td>
-                  <td className="px-4 py-3 text-muted-foreground">{new Date(user.createdAt).toLocaleDateString()}</td>
+                  <td className="px-4 py-3 text-muted-foreground">{user.status}</td>
                 </tr>
               ))}
             </tbody>

@@ -1,20 +1,10 @@
 import { Link, useNavigate } from "react-router";
-import { ShoppingCart, Bird, Search, User, Phone, MapPin, ChevronDown } from "lucide-react";
+import { ShoppingCart, Bird, Search, Phone, MapPin, ChevronDown } from "lucide-react";
 import { useState, useRef } from "react";
+import { useQuery } from "@tanstack/react-query";
 import { useCartStore } from "~/store/cart.store";
 import { useAuthStore } from "~/store/auth.store";
-
-const NAV_CATEGORIES = [
-  "Best Sellers", "New Arrivals",
-  "T-shirts & Polos", "Hoodies & Jackets", "Jerseys & Sportswear",
-  "Uniforms & Workwear", "Bottles & Mugs", "Caps & Hats",
-  "Bags & Backpacks", "Office & Stationery", "Boxes & Packaging",
-  "Travel & Tech", "Corporate Gifting", "Home & Wellness",
-  "Printing Materials", "Eco-friendly", "Promotional Giveaways",
-  "Pants & Shorts", "Pet Merch", "Kids & School",
-  "Stickers & Labels", "Business Cards", "Tradeshows & Exhibitions",
-  "Food & Candy",
-];
+import { categoriesQuery } from "~/queries/categories";
 
 export function Navbar() {
   const [search, setSearch] = useState("");
@@ -24,6 +14,7 @@ export function Navbar() {
   const logout = useAuthStore((s) => s.logout);
   const navigate = useNavigate();
   const userMenuRef = useRef<HTMLDivElement>(null);
+  const { data: categories = [] } = useQuery(categoriesQuery);
 
   function handleSearch(e: React.FormEvent) {
     e.preventDefault();
@@ -114,10 +105,10 @@ export function Navbar() {
                   className="flex items-center gap-2 px-3 py-2 rounded-xl hover:bg-gray-100 transition-colors"
                 >
                   <div className="h-7 w-7 rounded-full bg-yellow-400 flex items-center justify-center text-xs font-extrabold text-black">
-                    {user.fullName.charAt(0)}
+                    {user.firstName.charAt(0)}
                   </div>
                   <span className="hidden lg:block text-sm font-semibold text-gray-700 max-w-[80px] truncate">
-                    {user.fullName.split(" ")[0]}
+                    {user.firstName}
                   </span>
                   <ChevronDown className="h-3.5 w-3.5 text-gray-400" />
                 </button>
@@ -125,7 +116,7 @@ export function Navbar() {
                 {userMenuOpen && (
                   <div className="absolute right-0 top-full mt-2 w-52 bg-white border border-gray-200 rounded-2xl shadow-xl overflow-hidden z-50">
                     <div className="px-4 py-3 border-b border-gray-100 bg-gray-50">
-                      <p className="text-xs font-bold text-gray-900 truncate">{user.fullName}</p>
+                      <p className="text-xs font-bold text-gray-900 truncate">{user.firstName} {user.lastName}</p>
                       <p className="text-xs text-gray-500 truncate">{user.email}</p>
                       <span className={`inline-block mt-1 text-[10px] font-bold px-2 py-0.5 rounded-full ${user.role === "ADMIN" ? "bg-yellow-100 text-yellow-800" : "bg-gray-100 text-gray-600"}`}>
                         {user.role}
@@ -148,7 +139,7 @@ export function Navbar() {
                       My Orders
                     </Link>
                     <button
-                      onClick={() => { logout(); setUserMenuOpen(false); }}
+                      onClick={() => { logout(); setUserMenuOpen(false); navigate("/"); }}
                       className="w-full text-left px-4 py-2.5 text-sm text-red-600 hover:bg-red-50 transition-colors border-t border-gray-100"
                     >
                       Logout
@@ -180,17 +171,22 @@ export function Navbar() {
       <div className="bg-white border-b border-gray-100 overflow-x-auto scrollbar-none">
         <div className="max-w-screen-xl mx-auto px-4 lg:px-8">
           <div className="flex items-stretch min-w-max">
-            {NAV_CATEGORIES.map((cat) => (
+            {["Best Sellers", "New Arrivals"].map((cat) => (
               <button
                 key={cat}
                 onClick={() => handleCategoryClick(cat)}
-                className={`whitespace-nowrap px-4 py-3 text-[13px] font-semibold border-b-2 transition-colors hover:text-yellow-600 hover:border-yellow-400 ${
-                  cat === "Best Sellers"
-                    ? "text-yellow-600 border-yellow-400"
-                    : "text-gray-600 border-transparent"
-                }`}
+                className="whitespace-nowrap px-4 py-3 text-[13px] font-semibold border-b-2 transition-colors hover:text-yellow-600 hover:border-yellow-400 text-yellow-600 border-yellow-400"
               >
                 {cat}
+              </button>
+            ))}
+            {categories.map((cat) => (
+              <button
+                key={cat.id}
+                onClick={() => handleCategoryClick(cat.name)}
+                className="whitespace-nowrap px-4 py-3 text-[13px] font-semibold border-b-2 transition-colors hover:text-yellow-600 hover:border-yellow-400 text-gray-600 border-transparent"
+              >
+                {cat.name}
               </button>
             ))}
           </div>

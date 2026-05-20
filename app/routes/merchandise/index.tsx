@@ -4,8 +4,8 @@ import { Loader2, SlidersHorizontal, X } from "lucide-react";
 import { useState } from "react";
 import { FilterSidebar } from "~/components/storefront/filter-sidebar";
 import { ProductCard } from "~/components/storefront/product-card";
-import { productsQuery } from "~/queries/products";
-import type { ProductFilters } from "~/types";
+import { searchProductsQuery } from "~/queries/products";
+import { categoriesQuery } from "~/queries/categories";
 
 export function meta() {
   return [{ title: "Merchandise — yellowbirds" }];
@@ -13,8 +13,6 @@ export function meta() {
 
 const SORT_OPTIONS = [
   { value: "", label: "Default" },
-  { value: "price_asc", label: "Price: Low to High" },
-  { value: "price_desc", label: "Price: High to Low" },
   { value: "newest", label: "Newest" },
   { value: "best_seller", label: "Best Sellers" },
 ];
@@ -23,17 +21,34 @@ export default function MerchandisePage() {
   const [params, setParams] = useSearchParams();
   const [mobileFiltersOpen, setMobileFiltersOpen] = useState(false);
 
-  const filters: ProductFilters = {
-    category: params.get("category") ?? undefined,
-    colors: params.getAll("colors").length ? params.getAll("colors") : undefined,
-    minPrice: params.get("minPrice") ? Number(params.get("minPrice")) : undefined,
-    maxPrice: params.get("maxPrice") ? Number(params.get("maxPrice")) : undefined,
-    search: params.get("search") ?? undefined,
-    sort: (params.get("sort") as ProductFilters["sort"]) ?? undefined,
-    page: params.get("page") ? Number(params.get("page")) : 0,
+  const { data: categories = [] } = useQuery(categoriesQuery);
+
+  const categoryName = params.get("category") ?? undefined;
+  const categoryId = categoryName
+    ? categories.find((c) => c.name === categoryName)?.id
+    : undefined;
+
+  // Color filter: URL stores hex values (e.g. #FF5733)
+  const activeColorHexes = params.getAll("colors");
+
+  const searchParams = {
+    q: params.get("search") ?? undefined,
+    categoryId,
+    color: activeColorHexes[0] ?? undefined,
+    page: params.get("page") ? Number(params.get("page")) : 1,
+    hitsPerPage: 20,
   };
 
-  const { data, isLoading } = useQuery(productsQuery(filters));
+  const { data, isLoading } = useQuery(searchProductsQuery(searchParams));
+
+  const sort = params.get("sort") ?? "";
+
+  // Client-side sort (backend search API has no sort params)
+  const hits = (data?.hits ?? [])
+    .sort((a, b) => {
+      if (sort === "newest") return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
+      return 0; // default / best_seller: keep API order
+    });
 
   const activeSearch = params.get("search");
   const activeCategory = params.get("category");
@@ -75,9 +90,9 @@ export default function MerchandisePage() {
                 "All Merchandise"
               )}
             </h1>
-            {data && (
+            {!isLoading && (
               <p className="text-sm text-gray-500 mt-0.5">
-                {data.total} product{data.total !== 1 ? "s" : ""} found
+                {hits.length} product{hits.length !== 1 ? "s" : ""} found
               </p>
             )}
           </div>
@@ -106,7 +121,7 @@ export default function MerchandisePage() {
         </div>
 
         {/* Active filter chips */}
-        {(activeCategory || params.getAll("colors").length > 0 || params.get("search")) && (
+        {(activeCategory || activeColorHexes.length > 0 || params.get("search")) && (
           <div className="flex flex-wrap gap-2 mb-5">
             {activeCategory && (
               <span className="inline-flex items-center gap-1.5 bg-yellow-50 text-yellow-800 text-xs font-semibold px-3 py-1.5 rounded-full border border-yellow-200">
@@ -116,13 +131,14 @@ export default function MerchandisePage() {
                 </button>
               </span>
             )}
-            {params.getAll("colors").map((c) => (
-              <span key={c} className="inline-flex items-center gap-1.5 bg-gray-100 text-gray-700 text-xs font-semibold px-3 py-1.5 rounded-full border border-gray-200">
-                {c}
+            {activeColorHexes.map((hex) => (
+              <span key={hex} className="inline-flex items-center gap-1.5 bg-gray-100 text-gray-700 text-xs font-semibold px-3 py-1.5 rounded-full border border-gray-200">
+                <span className="h-3 w-3 rounded-full border border-gray-300 shrink-0" style={{ backgroundColor: hex }} />
+                {hex}
                 <button onClick={() => {
                   const n = new URLSearchParams(params);
                   n.delete("colors");
-                  params.getAll("colors").filter((x) => x !== c).forEach((x) => n.append("colors", x));
+                  activeColorHexes.filter((x) => x !== hex).forEach((x) => n.append("colors", x));
                   setParams(n);
                 }}>
                   <X className="h-3 w-3" />
@@ -170,7 +186,7 @@ export default function MerchandisePage() {
               </div>
             )}
 
-            {!isLoading && data && data.data.length === 0 && (
+            {!isLoading && hits.length === 0 && (
               <div className="flex flex-col items-center justify-center h-64 text-center">
                 <p className="text-5xl mb-4">🔍</p>
                 <p className="font-bold text-gray-900 text-lg mb-2">No products found</p>
@@ -184,10 +200,10 @@ export default function MerchandisePage() {
               </div>
             )}
 
-            {!isLoading && data && data.data.length > 0 && (
+            {!isLoading && hits.length > 0 && (
               <>
                 <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-4">
-                  {data.data.map((product) => (
+                  {hits.map((product) => (
                     <ProductCard key={product.id} product={product} />
                   ))}
                 </div>
@@ -196,10 +212,10 @@ export default function MerchandisePage() {
                 {data.totalPages > 1 && (
                   <div className="flex justify-center items-center gap-2 mt-10">
                     <button
-                      disabled={(filters.page ?? 0) === 0}
+                      disabled={searchParams.page === 1}
                       onClick={() => {
                         const n = new URLSearchParams(params);
-                        n.set("page", String((filters.page ?? 0) - 1));
+                        n.set("page", String((searchParams.page ?? 1) - 1));
                         setParams(n);
                       }}
                       className="px-4 py-2 text-sm font-medium rounded-xl border border-gray-200 hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
@@ -210,9 +226,9 @@ export default function MerchandisePage() {
                       {Array.from({ length: data.totalPages }, (_, i) => (
                         <button
                           key={i}
-                          onClick={() => { const n = new URLSearchParams(params); n.set("page", String(i)); setParams(n); }}
+                          onClick={() => { const n = new URLSearchParams(params); n.set("page", String(i + 1)); setParams(n); }}
                           className={`h-9 w-9 rounded-xl text-sm font-bold transition-colors ${
-                            (filters.page ?? 0) === i
+                            (searchParams.page ?? 1) === i + 1
                               ? "bg-yellow-400 text-black"
                               : "border border-gray-200 hover:bg-gray-50 text-gray-700"
                           }`}
@@ -222,10 +238,10 @@ export default function MerchandisePage() {
                       ))}
                     </div>
                     <button
-                      disabled={(filters.page ?? 0) === data.totalPages - 1}
+                      disabled={(searchParams.page ?? 1) === data.totalPages}
                       onClick={() => {
                         const n = new URLSearchParams(params);
-                        n.set("page", String((filters.page ?? 0) + 1));
+                        n.set("page", String((searchParams.page ?? 1) + 1));
                         setParams(n);
                       }}
                       className="px-4 py-2 text-sm font-medium rounded-xl border border-gray-200 hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"

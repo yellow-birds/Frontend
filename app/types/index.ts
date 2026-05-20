@@ -82,9 +82,10 @@ export type UserRole = "CUSTOMER" | "ADMIN";
 export interface User {
   id: string;
   email: string;
-  fullName: string;
+  firstName: string;
+  lastName: string;
+  status: string;
   role: UserRole;
-  createdAt: string;
 }
 
 // ─── Address ─────────────────────────────────────────────────────────────────

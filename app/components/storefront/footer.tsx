@@ -52,11 +52,11 @@ export function Footer() {
 
             {/* Contact info */}
             <div className="space-y-3 text-sm text-gray-400">
-              <a href="tel:+97158224" className="flex items-center gap-2.5 hover:text-yellow-400 transition-colors group">
+              <a href="tel:+905350297167" className="flex items-center gap-2.5 hover:text-yellow-400 transition-colors group">
                 <div className="h-8 w-8 rounded-lg bg-gray-800 group-hover:bg-yellow-400 flex items-center justify-center transition-colors shrink-0">
                   <Phone className="h-3.5 w-3.5 text-gray-400 group-hover:text-black" />
                 </div>
-                800-MERCH (24/7 Support)
+                +90 535 029 71 67
               </a>
               <a href="mailto:hello@yellowbirds.com" className="flex items-center gap-2.5 hover:text-yellow-400 transition-colors group">
                 <div className="h-8 w-8 rounded-lg bg-gray-800 group-hover:bg-yellow-400 flex items-center justify-center transition-colors shrink-0">

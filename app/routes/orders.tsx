@@ -1,10 +1,16 @@
-import { Link, useNavigate } from "react-router";
+import { Link, redirect, useNavigate } from "react-router";
 import { useQuery } from "@tanstack/react-query";
 import { useAuthStore } from "~/store/auth.store";
 import { useEffect } from "react";
 import { Package, ChevronRight, Loader2, ShoppingBag } from "lucide-react";
 import { api } from "~/lib/api";
 import type { Order } from "~/types";
+import { getToken } from "~/lib/auth";
+
+export function clientLoader() {
+  if (!getToken()) throw redirect("/login");
+  return null;
+}
 
 export function meta() {
   return [{ title: "My Orders — yellowbirds" }];

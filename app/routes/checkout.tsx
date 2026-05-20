@@ -1,8 +1,15 @@
+import { redirect } from "react-router";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { Button } from "~/components/ui/button";
 import { useCartStore } from "~/store/cart.store";
+import { getToken } from "~/lib/auth";
+
+export function clientLoader() {
+  if (!getToken()) throw redirect("/login");
+  return null;
+}
 
 const schema = z.object({
   fullName: z.string().min(2, "Required"),

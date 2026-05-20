@@ -1,8 +1,9 @@
 import { Link } from "react-router";
 import { useQuery } from "@tanstack/react-query";
-import { Star, CheckCircle2 } from "lucide-react";
-import { CATEGORIES } from "~/mocks/data";
-import { productsQuery } from "~/queries/products";
+import { Star } from "lucide-react";
+import { useState } from "react";
+import { searchProductsQuery } from "~/queries/products";
+import { categoriesQuery } from "~/queries/categories";
 import { ProductCard } from "~/components/storefront/product-card";
 
 const FEATURES = [
@@ -49,9 +50,22 @@ export function meta() {
   ];
 }
 
+const PRODUCT_TABS = [
+  { id: "best_sellers", label: "Best Sellers" },
+  { id: "new_arrivals", label: "New Arrivals" },
+] as const;
+
 export default function Home() {
-  const { data: bestSellersData } = useQuery(productsQuery({ sort: "best_seller", page: 0 }));
-  const bestSellers = bestSellersData?.data ?? [];
+  const [activeTab, setActiveTab] = useState<"best_sellers" | "new_arrivals">("best_sellers");
+  const { data: productsData } = useQuery(searchProductsQuery({ page: 1, hitsPerPage: 8 }));
+  const { data: categories = [] } = useQuery(categoriesQuery);
+
+  const allProducts = productsData?.hits ?? [];
+  const newArrivals = [...allProducts].sort(
+    (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+  );
+
+  const tabProducts = activeTab === "best_sellers" ? allProducts : newArrivals;
 
   return (
     <div className="bg-white">
@@ -154,25 +168,31 @@ export default function Home() {
         </div>
 
         <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4">
-          {CATEGORIES.map((cat) => (
+          {categories.map((cat) => (
             <Link
-              key={cat.slug}
+              key={cat.id}
               to={`/merchandise?category=${encodeURIComponent(cat.name)}`}
               className="group bg-white border border-gray-200 rounded-2xl overflow-hidden hover:border-yellow-400 hover:shadow-lg transition-all duration-200 hover:-translate-y-1 flex flex-col"
             >
-              <div className="aspect-square overflow-hidden bg-gray-50">
-                <img
-                  src={cat.image}
-                  alt={cat.name}
-                  className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
-                />
-              </div>
+              {cat.imageUrl ? (
+                <div className="aspect-square overflow-hidden bg-gray-50">
+                  <img
+                    src={cat.imageUrl}
+                    alt={cat.name}
+                    className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                  />
+                </div>
+              ) : (
+                <div className="aspect-square bg-gray-100 flex items-center justify-center">
+                  <span className="text-3xl font-extrabold text-gray-300 uppercase">{cat.name.slice(0, 2)}</span>
+                </div>
+              )}
               <div className="p-3 flex flex-col gap-2 flex-1">
                 <div>
                   <h3 className="font-bold text-gray-900 text-sm leading-snug group-hover:text-yellow-600 transition-colors">
                     {cat.name}
                   </h3>
-                  <p className="text-gray-400 text-xs mt-0.5">{cat.count} products</p>
+                  <p className="text-gray-400 text-xs mt-0.5 font-mono">{cat.code}</p>
                 </div>
                 <div className="mt-auto">
                   <span className="block w-full text-center bg-gray-900 group-hover:bg-yellow-400 group-hover:text-black text-white text-xs font-bold py-2 rounded-xl transition-colors uppercase tracking-wide">
@@ -183,21 +203,27 @@ export default function Home() {
             </Link>
           ))}
 
+          {categories.length === 0 && (
+            <div className="col-span-full text-center py-12 text-gray-400 text-sm">
+              No categories yet.
+            </div>
+          )}
+
           {/* Best Sellers tile */}
           <Link
-            to="/merchandise?sort=best_seller"
+            to="/merchandise"
             className="group bg-yellow-400 border border-yellow-400 rounded-2xl overflow-hidden hover:shadow-lg transition-all duration-200 hover:-translate-y-1 flex flex-col"
           >
             <div className="aspect-square overflow-hidden bg-yellow-300 flex items-center justify-center">
               <div className="text-center px-4">
                 <Star className="h-12 w-12 text-yellow-700 mx-auto fill-yellow-600" />
-                <p className="font-extrabold text-yellow-900 mt-2 text-lg leading-tight">Best Sellers</p>
+                <p className="font-extrabold text-yellow-900 mt-2 text-lg leading-tight">All Products</p>
               </div>
             </div>
             <div className="p-3 flex flex-col gap-2 flex-1">
               <div>
-                <h3 className="font-bold text-gray-900 text-sm">Best Sellers</h3>
-                <p className="text-gray-700 text-xs mt-0.5">Top 100+ products</p>
+                <h3 className="font-bold text-gray-900 text-sm">All Products</h3>
+                <p className="text-gray-700 text-xs mt-0.5">Browse everything</p>
               </div>
               <div className="mt-auto">
                 <span className="block w-full text-center bg-gray-900 text-white text-xs font-bold py-2 rounded-xl uppercase tracking-wide">
@@ -209,30 +235,48 @@ export default function Home() {
         </div>
       </section>
 
-      {/* ── Best Sellers Products ─────────────────────────────────────────────── */}
-      {bestSellers.length > 0 && (
-        <section className="bg-gray-50 py-14 border-y border-gray-100">
-          <div className="max-w-screen-xl mx-auto px-4 lg:px-8">
-            <div className="flex items-center justify-between mb-8">
-              <div>
-                <p className="text-yellow-600 font-bold text-sm uppercase tracking-widest mb-1">Trending</p>
-                <h2 className="text-3xl font-extrabold text-gray-900">Best Sellers</h2>
-              </div>
-              <Link
-                to="/merchandise?sort=best_seller"
-                className="text-sm font-bold text-gray-900 border-b-2 border-yellow-400 hover:text-yellow-600 transition-colors pb-0.5"
-              >
-                View All →
-              </Link>
+      {/* ── Tabbed Products Section ──────────────────────────────────────────── */}
+      <section className="bg-gray-50 py-14 border-y border-gray-100">
+        <div className="max-w-screen-xl mx-auto px-4 lg:px-8">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-8">
+            {/* Tabs */}
+            <div className="flex items-center gap-1 bg-white border border-gray-200 rounded-2xl p-1 w-fit">
+              {PRODUCT_TABS.map((tab) => (
+                <button
+                  key={tab.id}
+                  onClick={() => setActiveTab(tab.id)}
+                  className={`px-5 py-2 rounded-xl text-sm font-extrabold transition-all ${
+                    activeTab === tab.id
+                      ? "bg-yellow-400 text-black shadow-sm"
+                      : "text-gray-500 hover:text-gray-800"
+                  }`}
+                >
+                  {tab.label}
+                </button>
+              ))}
             </div>
+            <Link
+              to={activeTab === "best_sellers" ? "/merchandise" : "/merchandise?sort=newest"}
+              className="text-sm font-bold text-gray-900 border-b-2 border-yellow-400 hover:text-yellow-600 transition-colors pb-0.5 self-start sm:self-auto"
+            >
+              View All →
+            </Link>
+          </div>
+
+          {tabProducts.length > 0 ? (
             <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-5">
-              {bestSellers.slice(0, 8).map((p) => (
+              {tabProducts.slice(0, 8).map((p) => (
                 <ProductCard key={p.id} product={p} />
               ))}
             </div>
-          </div>
-        </section>
-      )}
+          ) : (
+            <div className="text-center py-16 text-gray-400">
+              <p className="text-4xl mb-3">🐦</p>
+              <p className="font-semibold">No products yet</p>
+            </div>
+          )}
+        </div>
+      </section>
 
       {/* ── Brands ───────────────────────────────────────────────────────────── */}
       <section className="max-w-screen-xl mx-auto px-4 lg:px-8 py-14">

@@ -34,8 +34,20 @@ export function getCurrentUser(): User | null {
   }
 }
 
+export function isTokenExpired(): boolean {
+  const token = getToken();
+  if (!token) return true;
+  try {
+    const payload = JSON.parse(atob(token.split(".")[1]));
+    // exp is in seconds, Date.now() in ms — add 10s buffer
+    return payload.exp * 1000 < Date.now() + 10_000;
+  } catch {
+    return true;
+  }
+}
+
 export function isAuthenticated(): boolean {
-  return !!getToken();
+  return !!getToken() && !isTokenExpired();
 }
 
 export function isAdmin(): boolean {

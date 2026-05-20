@@ -5,14 +5,10 @@
  */
 
 import { mockRequest } from "~/mocks/handlers";
+import { clearSession, getToken, isTokenExpired } from "~/lib/auth";
 
 const USE_MOCK = import.meta.env.VITE_USE_MOCK === "true";
-const BASE_URL = import.meta.env.VITE_API_URL ?? "http://localhost:8080/api";
-
-function getToken(): string | null {
-  if (typeof window === "undefined") return null;
-  return localStorage.getItem("yb_token");
-}
+const BASE_URL = import.meta.env.VITE_API_URL ?? "";
 
 interface RequestOptions {
   params?: Record<string, string | number | boolean | undefined>;
@@ -32,7 +28,8 @@ async function request<T>(path: string, options: RequestOptions = {}): Promise<T
     );
   }
 
-  const url = new URL(`${BASE_URL}${path}`);
+  const base = BASE_URL || (typeof window !== "undefined" ? window.location.origin : "");
+  const url = new URL(`${base}${path}`);
   if (params) {
     Object.entries(params).forEach(([k, v]) => {
       if (v !== undefined) url.searchParams.set(k, String(v));
@@ -40,6 +37,16 @@ async function request<T>(path: string, options: RequestOptions = {}): Promise<T
   }
 
   const token = getToken();
+
+  // Proactively catch expired tokens before they hit the backend as a 500
+  if (token && isTokenExpired()) {
+    clearSession();
+    if (typeof window !== "undefined") {
+      window.location.href = "/login";
+    }
+    throw { message: "Session expired. Please log in again.", status: 401, body: null };
+  }
+
   const headers = new Headers();
   headers.set("Content-Type", "application/json");
   if (token) headers.set("Authorization", `Bearer ${token}`);
@@ -47,8 +54,18 @@ async function request<T>(path: string, options: RequestOptions = {}): Promise<T
   const res = await fetch(url.toString(), { method, headers, body });
 
   if (!res.ok) {
-    const error = await res.json().catch(() => ({ message: res.statusText }));
-    throw { message: error.message ?? "Request failed", status: res.status };
+    const rawText = await res.text().catch(() => "");
+    let errBody: Record<string, unknown> | null = null;
+    try { errBody = JSON.parse(rawText); } catch { /* not JSON */ }
+    console.error(`[API] ${method} ${path} → ${res.status}`, errBody ?? rawText);
+    const message =
+      errBody?.message ||
+      errBody?.error ||
+      (Array.isArray(errBody?.errors) ? (errBody.errors as { defaultMessage?: string }[]).map((e) => e.defaultMessage).join(", ") : null) ||
+      rawText ||
+      res.statusText ||
+      `Error ${res.status}`;
+    throw { message, status: res.status, body: errBody };
   }
   if (res.status === 204) return undefined as T;
   return res.json();
