@@ -1,4 +1,5 @@
 import { Outlet } from "react-router";
+import { Toaster } from "sonner";
 import { Navbar } from "~/components/storefront/navbar";
 import { Footer } from "~/components/storefront/footer";
 import { QueryProvider } from "~/components/providers/query-provider";
@@ -10,6 +11,7 @@ export default function StorefrontLayout() {
   return (
     <QueryProvider>
       <AuthHydrator />
+      <Toaster position="top-right" richColors closeButton />
       <div className="flex min-h-screen flex-col">
         <Navbar />
         <main className="flex-1">

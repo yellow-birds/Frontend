@@ -175,7 +175,7 @@ export function Navbar() {
               <button
                 key={cat}
                 onClick={() => handleCategoryClick(cat)}
-                className="whitespace-nowrap px-4 py-3 text-[13px] font-semibold border-b-2 transition-colors hover:text-yellow-600 hover:border-yellow-400 text-yellow-600 border-yellow-400"
+                className="whitespace-nowrap px-4 py-3 text-[13px] font-semibold border-b-2 transition-colors hover:text-yellow-600 hover:border-yellow-400 text-gray-600 border-transparent"
               >
                 {cat}
               </button>

@@ -1,6 +1,7 @@
-import { useParams, Link } from "react-router";
+import { useParams, Link, useNavigate } from "react-router";
 import { useQuery } from "@tanstack/react-query";
 import { useState, useRef, useCallback } from "react";
+import { toast } from "sonner";
 import { ShoppingCart, Loader2, ChevronRight, ZoomIn, ZoomOut, Maximize2 } from "lucide-react";
 import { Button } from "~/components/ui/button";
 import { productDetailQuery } from "~/queries/products";
@@ -35,6 +36,7 @@ export function meta() {
 
 export default function ProductPage() {
   const { slug: id } = useParams<{ slug: string }>();
+  const navigate = useNavigate();
   const { data: product, isLoading, isError } = useQuery(productDetailQuery(id!));
   const addItem = useCartStore((s) => s.addItem);
 
@@ -42,6 +44,7 @@ export default function ProductPage() {
   const [quantity, setQuantity] = useState(1);
   const [customColor, setCustomColor] = useState<string>("");
   const [sizeError, setSizeError] = useState(false);
+  const [imgError, setImgError] = useState(false);
 
   // Zoom state
   const [zoom, setZoom] = useState(1);
@@ -120,10 +123,11 @@ export default function ProductPage() {
     if (!product) return;
     if (sizes.length > 0 && !activeSize) {
       setSizeError(true);
+      toast.error("Please select a size first");
       return;
     }
     setSizeError(false);
-    addItem({
+    const added = addItem({
       productId: product.id,
       variantId: `${product.id}-${activeSize}-${displayColor}`,
       name: product.name,
@@ -133,6 +137,17 @@ export default function ProductPage() {
       quantity,
       unitPrice: product.salePrice,
     });
+    if (added) {
+      toast.success(`${product.name} added to cart`, {
+        description: [activeSize, COLOR_PALETTE.find(c => c.hex === displayColor)?.name].filter(Boolean).join(" · "),
+        action: { label: "View Cart", onClick: () => navigate("/cart") },
+      });
+    } else {
+      toast.info("Already in your cart", {
+        description: "Adjust the quantity using +/− in your cart.",
+        action: { label: "Go to Cart", onClick: () => navigate("/cart") },
+      });
+    }
   }
 
   function waInquiry() {
@@ -183,7 +198,7 @@ export default function ProductPage() {
             onMouseLeave={handleMouseUp}
             style={{ cursor: zoom > 1 ? (isDragging ? "grabbing" : "grab") : "zoom-in" }}
           >
-            {product.mainImageUrl ? (
+            {product.mainImageUrl && !imgError ? (
               <>
                 <div
                   className="w-full h-full transition-transform duration-150 ease-out"
@@ -198,6 +213,7 @@ export default function ProductPage() {
                     alt={product.name}
                     className="w-full h-full object-contain p-2"
                     draggable={false}
+                    onError={() => setImgError(true)}
                   />
                   {/* Color overlay */}
                   {customColor && (
