@@ -68,13 +68,11 @@ export default function CartPage() {
       });
     } catch (err: unknown) {
       const e = err as { message?: string; status?: number };
-      if (e.status === 404) {
-        toast.error("Order service not available yet", {
-          description: "The backend order endpoint is not ready. Contact support.",
-        });
-      } else {
-        toast.error(e.message ?? "Something went wrong. Please try again.");
-      }
+      console.error("[Place Order error]", e);
+      toast.error(`Error ${e.status ?? ""}: ${e.message ?? "Something went wrong"}`, {
+        description: "Check the browser console and Spring Boot logs for details.",
+        duration: 8000,
+      });
     } finally {
       setPlacing(false);
     }
