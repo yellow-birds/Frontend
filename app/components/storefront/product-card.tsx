@@ -18,12 +18,12 @@ export function ProductCard({ product }: Props) {
   return (
     <div className="group flex flex-col bg-white border border-gray-200 rounded-xl overflow-hidden hover:shadow-lg hover:border-yellow-300 transition-all duration-200">
       {/* Image */}
-      <Link to={`/merchandise/${product.id}`} className="relative aspect-square overflow-hidden bg-gray-50 block">
+      <Link to={`/merchandise/${product.id}`} className="relative aspect-square overflow-hidden bg-white block">
         {product.mainImageUrl ? (
           <img
             src={product.mainImageUrl}
             alt={product.name}
-            className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+            className="w-full h-full object-contain group-hover:scale-105 transition-transform duration-300 p-2"
           />
         ) : (
           <div className="w-full h-full flex items-center justify-center text-gray-300 text-5xl select-none">

@@ -1,7 +1,7 @@
 import { useParams, Link } from "react-router";
 import { useQuery } from "@tanstack/react-query";
-import { useState } from "react";
-import { ShoppingCart, Loader2, ChevronRight } from "lucide-react";
+import { useState, useRef, useCallback } from "react";
+import { ShoppingCart, Loader2, ChevronRight, ZoomIn, ZoomOut, Maximize2 } from "lucide-react";
 import { Button } from "~/components/ui/button";
 import { productDetailQuery } from "~/queries/products";
 import { useCartStore } from "~/store/cart.store";
@@ -42,6 +42,58 @@ export default function ProductPage() {
   const [quantity, setQuantity] = useState(1);
   const [customColor, setCustomColor] = useState<string>("");
   const [sizeError, setSizeError] = useState(false);
+
+  // Zoom state
+  const [zoom, setZoom] = useState(1);
+  const [pan, setPan] = useState({ x: 0, y: 0 });
+  const [isDragging, setIsDragging] = useState(false);
+  const dragStart = useRef<{ x: number; y: number; px: number; py: number } | null>(null);
+  const imgContainerRef = useRef<HTMLDivElement>(null);
+
+  const MIN_ZOOM = 1;
+  const MAX_ZOOM = 4;
+
+  const changeZoom = useCallback((delta: number) => {
+    setZoom((z) => {
+      const next = Math.min(MAX_ZOOM, Math.max(MIN_ZOOM, z + delta));
+      if (next === MIN_ZOOM) setPan({ x: 0, y: 0 });
+      return next;
+    });
+  }, []);
+
+  const handleWheel = useCallback((e: React.WheelEvent) => {
+    e.preventDefault();
+    changeZoom(e.deltaY < 0 ? 0.3 : -0.3);
+  }, [changeZoom]);
+
+  const handleMouseDown = useCallback((e: React.MouseEvent) => {
+    if (zoom <= 1) return;
+    setIsDragging(true);
+    dragStart.current = { x: e.clientX, y: e.clientY, px: pan.x, py: pan.y };
+  }, [zoom, pan]);
+
+  const handleMouseMove = useCallback((e: React.MouseEvent) => {
+    if (!isDragging || !dragStart.current) return;
+    setPan({
+      x: dragStart.current.px + (e.clientX - dragStart.current.x),
+      y: dragStart.current.py + (e.clientY - dragStart.current.y),
+    });
+  }, [isDragging]);
+
+  const handleMouseUp = useCallback(() => {
+    setIsDragging(false);
+    dragStart.current = null;
+  }, []);
+
+  const handleImageClick = useCallback(() => {
+    if (isDragging) return;
+    if (zoom >= MAX_ZOOM) {
+      setZoom(1);
+      setPan({ x: 0, y: 0 });
+    } else {
+      changeZoom(zoom === 1 ? 1.5 : 1);
+    }
+  }, [zoom, isDragging, changeZoom]);
 
   if (isLoading) {
     return (
@@ -119,42 +171,102 @@ export default function ProductPage() {
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-10">
 
-        {/* Image — color is applied via mix-blend-mode: multiply */}
-        {/* The background becomes the selected color; the image sits on top with multiply blend,
-            making white areas take on the color while preserving shadows/texture */}
+        {/* Image viewer with zoom */}
         <div className="space-y-3">
           <div
-            className="aspect-square rounded-2xl overflow-hidden border border-gray-200 relative transition-colors duration-300"
-            style={{ backgroundColor: displayColor || "#F9FAFB" }}
+            ref={imgContainerRef}
+            className="aspect-square rounded-2xl overflow-hidden border border-gray-200 bg-white relative select-none"
+            onWheel={handleWheel}
+            onMouseDown={handleMouseDown}
+            onMouseMove={handleMouseMove}
+            onMouseUp={handleMouseUp}
+            onMouseLeave={handleMouseUp}
+            style={{ cursor: zoom > 1 ? (isDragging ? "grabbing" : "grab") : "zoom-in" }}
           >
             {product.mainImageUrl ? (
-              <img
-                src={product.mainImageUrl}
-                alt={product.name}
-                className="w-full h-full object-cover"
-                style={{ mixBlendMode: "multiply" }}
-              />
+              <>
+                <div
+                  className="w-full h-full transition-transform duration-150 ease-out"
+                  style={{
+                    transform: `scale(${zoom}) translate(${pan.x / zoom}px, ${pan.y / zoom}px)`,
+                    transformOrigin: "center center",
+                  }}
+                  onClick={handleImageClick}
+                >
+                  <img
+                    src={product.mainImageUrl}
+                    alt={product.name}
+                    className="w-full h-full object-contain p-2"
+                    draggable={false}
+                  />
+                  {/* Color overlay */}
+                  {customColor && (
+                    <div
+                      className="absolute inset-0 pointer-events-none"
+                      style={{ backgroundColor: customColor, mixBlendMode: "color" }}
+                    />
+                  )}
+                </div>
+              </>
             ) : (
-              <div className="w-full h-full flex items-center justify-center text-gray-200 text-9xl select-none">
+              <div className="w-full h-full flex items-center justify-center text-gray-200 text-9xl">
                 🐦
               </div>
             )}
+
+            {/* Zoom controls */}
+            {product.mainImageUrl && (
+              <div className="absolute top-3 right-3 flex flex-col gap-1.5">
+                <button
+                  onClick={(e) => { e.stopPropagation(); changeZoom(0.5); }}
+                  disabled={zoom >= MAX_ZOOM}
+                  className="h-8 w-8 rounded-lg bg-white/90 backdrop-blur-sm border border-gray-200 shadow flex items-center justify-center text-gray-600 hover:bg-yellow-400 hover:text-black hover:border-yellow-400 disabled:opacity-30 disabled:cursor-not-allowed transition-all"
+                  title="Zoom in"
+                >
+                  <ZoomIn className="h-4 w-4" />
+                </button>
+                <button
+                  onClick={(e) => { e.stopPropagation(); changeZoom(-0.5); }}
+                  disabled={zoom <= MIN_ZOOM}
+                  className="h-8 w-8 rounded-lg bg-white/90 backdrop-blur-sm border border-gray-200 shadow flex items-center justify-center text-gray-600 hover:bg-yellow-400 hover:text-black hover:border-yellow-400 disabled:opacity-30 disabled:cursor-not-allowed transition-all"
+                  title="Zoom out"
+                >
+                  <ZoomOut className="h-4 w-4" />
+                </button>
+                {zoom > 1 && (
+                  <button
+                    onClick={(e) => { e.stopPropagation(); setZoom(1); setPan({ x: 0, y: 0 }); }}
+                    className="h-8 w-8 rounded-lg bg-white/90 backdrop-blur-sm border border-gray-200 shadow flex items-center justify-center text-gray-600 hover:bg-gray-100 transition-all"
+                    title="Reset zoom"
+                  >
+                    <Maximize2 className="h-3.5 w-3.5" />
+                  </button>
+                )}
+              </div>
+            )}
+
+            {/* Zoom level pill */}
+            {zoom > 1 && (
+              <div className="absolute top-3 left-3 bg-black/60 text-white text-xs font-bold px-2.5 py-1 rounded-full backdrop-blur-sm">
+                {zoom.toFixed(1)}×
+              </div>
+            )}
+
             {/* Color name badge */}
             {customColor && (
-              <div className="absolute bottom-4 left-4 flex items-center gap-2 bg-white/90 backdrop-blur-sm rounded-xl px-3 py-2 shadow border border-gray-100">
-                <div
-                  className="h-4 w-4 rounded-full border border-gray-200 shrink-0"
-                  style={{ backgroundColor: customColor }}
-                />
+              <div className="absolute bottom-3 left-3 flex items-center gap-2 bg-white/95 backdrop-blur-sm rounded-xl px-3 py-2 shadow-md border border-gray-100">
+                <div className="h-4 w-4 rounded-full border border-gray-300 shrink-0" style={{ backgroundColor: customColor }} />
                 <span className="text-xs font-semibold text-gray-700">
                   {COLOR_PALETTE.find(c => c.hex === customColor)?.name ?? customColor}
                 </span>
-                <button
-                  onClick={() => setCustomColor("")}
-                  className="text-xs text-gray-400 hover:text-gray-600 ml-1"
-                >
-                  ✕
-                </button>
+                <button onClick={(e) => { e.stopPropagation(); setCustomColor(""); }} className="text-xs text-gray-400 hover:text-gray-600 ml-1 leading-none">✕</button>
+              </div>
+            )}
+
+            {/* Hint — only at 1× */}
+            {zoom === 1 && (
+              <div className="absolute bottom-3 right-3 text-[10px] text-gray-400 bg-white/80 backdrop-blur-sm px-2 py-1 rounded-lg pointer-events-none">
+                Click or scroll to zoom
               </div>
             )}
           </div>
