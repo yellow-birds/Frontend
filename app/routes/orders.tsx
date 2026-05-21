@@ -3,9 +3,9 @@ import { useQuery } from "@tanstack/react-query";
 import { useAuthStore } from "~/store/auth.store";
 import { useEffect } from "react";
 import { Package, ChevronRight, Loader2, ShoppingBag } from "lucide-react";
-import { api } from "~/lib/api";
-import type { Order } from "~/types";
+import { myOrdersQuery } from "~/queries/orders";
 import { getToken } from "~/lib/auth";
+import type { Order } from "~/types";
 
 export function clientLoader() {
   if (!getToken()) throw redirect("/login");
@@ -17,23 +17,13 @@ export function meta() {
 }
 
 const STATUS_STYLES: Record<string, { bg: string; text: string; label: string }> = {
-  PENDING:    { bg: "bg-yellow-100", text: "text-yellow-800", label: "Pending" },
+  PENDING:    { bg: "bg-yellow-100", text: "text-yellow-800", label: "Pending — awaiting confirmation" },
   CONFIRMED:  { bg: "bg-blue-100",   text: "text-blue-800",   label: "Confirmed" },
   PROCESSING: { bg: "bg-purple-100", text: "text-purple-800", label: "Processing" },
   SHIPPED:    { bg: "bg-indigo-100", text: "text-indigo-800", label: "Shipped" },
   DELIVERED:  { bg: "bg-green-100",  text: "text-green-800",  label: "Delivered" },
   CANCELLED:  { bg: "bg-red-100",    text: "text-red-800",    label: "Cancelled" },
 };
-
-function useOrders() {
-  return useQuery({
-    queryKey: ["my-orders"],
-    queryFn: async () => {
-      const res = await api.get<{ data: Order[]; total: number }>("/orders");
-      return res.data;
-    },
-  });
-}
 
 export default function OrdersPage() {
   const user = useAuthStore((s) => s.user);
@@ -43,13 +33,12 @@ export default function OrdersPage() {
     if (!user) navigate("/login");
   }, [user, navigate]);
 
-  const { data: orders, isLoading } = useOrders();
+  const { data: orders = [], isLoading } = useQuery(myOrdersQuery);
 
   if (!user) return null;
 
   return (
     <div className="bg-gray-50 min-h-screen">
-      {/* Breadcrumb */}
       <div className="bg-white border-b border-gray-100">
         <div className="max-w-screen-xl mx-auto px-4 lg:px-8 py-3 flex items-center gap-2 text-sm text-gray-500">
           <Link to="/" className="hover:text-yellow-600 transition-colors">Home</Link>
@@ -65,7 +54,7 @@ export default function OrdersPage() {
           </div>
           <div>
             <h1 className="text-2xl font-extrabold text-gray-900">My Orders</h1>
-            <p className="text-sm text-gray-500">Track and manage your yellowbirds orders</p>
+            <p className="text-sm text-gray-500">Track your yellowbirds orders</p>
           </div>
         </div>
 
@@ -75,15 +64,13 @@ export default function OrdersPage() {
           </div>
         )}
 
-        {!isLoading && (!orders || orders.length === 0) && (
+        {!isLoading && orders.length === 0 && (
           <div className="bg-white rounded-2xl border border-gray-200 p-16 flex flex-col items-center text-center">
             <div className="h-20 w-20 rounded-full bg-gray-100 flex items-center justify-center mb-5">
               <ShoppingBag className="h-10 w-10 text-gray-300" />
             </div>
             <h2 className="text-xl font-extrabold text-gray-900 mb-2">No orders yet</h2>
-            <p className="text-gray-500 mb-8 max-w-xs">
-              You haven't placed any orders yet. Start customizing your merch!
-            </p>
+            <p className="text-gray-500 mb-8 max-w-xs">Start customising your merch!</p>
             <Link
               to="/merchandise"
               className="inline-flex items-center justify-center bg-yellow-400 hover:bg-yellow-300 text-black font-extrabold px-8 py-3 rounded-full uppercase tracking-wide transition-colors"
@@ -93,9 +80,9 @@ export default function OrdersPage() {
           </div>
         )}
 
-        {!isLoading && orders && orders.length > 0 && (
+        {!isLoading && orders.length > 0 && (
           <div className="space-y-4">
-            {orders.map((order) => {
+            {orders.map((order: Order) => {
               const status = STATUS_STYLES[order.status] ?? STATUS_STYLES["PENDING"];
               const totalItems = order.items.reduce((s, i) => s + i.quantity, 0);
               const orderDate = new Date(order.createdAt).toLocaleDateString("en-US", {
@@ -107,12 +94,12 @@ export default function OrdersPage() {
                   key={order.id}
                   className="bg-white rounded-2xl border border-gray-200 hover:border-yellow-300 hover:shadow-md transition-all overflow-hidden"
                 >
-                  {/* Order header */}
+                  {/* Header */}
                   <div className="px-6 py-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-gray-100">
-                    <div className="flex items-center gap-4">
+                    <div className="flex items-center gap-4 flex-wrap">
                       <div>
-                        <p className="text-xs text-gray-500 font-medium">Order ID</p>
-                        <p className="font-extrabold text-gray-900 font-mono text-sm">{order.id}</p>
+                        <p className="text-xs text-gray-500 font-medium">Order</p>
+                        <p className="font-extrabold text-gray-900 font-mono text-sm">#{order.id.slice(0, 8).toUpperCase()}</p>
                       </div>
                       <div className="hidden sm:block h-8 w-px bg-gray-200" />
                       <div>
@@ -130,7 +117,6 @@ export default function OrdersPage() {
                       <span className={`px-3 py-1 rounded-full text-xs font-bold ${status.bg} ${status.text}`}>
                         {status.label}
                       </span>
-                      <p className="font-extrabold text-gray-900 text-lg">${order.totalAmount.toFixed(2)}</p>
                       <Link
                         to={`/orders/${order.id}`}
                         className="flex items-center gap-1 text-sm font-bold text-yellow-600 hover:text-yellow-700 transition-colors"
@@ -140,21 +126,33 @@ export default function OrdersPage() {
                     </div>
                   </div>
 
-                  {/* Order items preview */}
+                  {/* Pending hint */}
+                  {order.status === "PENDING" && (
+                    <div className="px-6 py-2.5 bg-yellow-50 border-b border-yellow-100 flex items-center gap-2">
+                      <span className="h-2 w-2 rounded-full bg-yellow-400 animate-pulse shrink-0" />
+                      <p className="text-xs text-yellow-700 font-medium">
+                        Waiting for WhatsApp confirmation from our team
+                      </p>
+                    </div>
+                  )}
+
+                  {/* Items preview */}
                   <div className="px-6 py-4">
                     <div className="flex items-center gap-4 flex-wrap">
                       {order.items.slice(0, 4).map((item, idx) => (
                         <div key={idx} className="flex items-center gap-2.5">
                           <div className="h-12 w-12 rounded-xl overflow-hidden bg-gray-100 border border-gray-200 shrink-0">
-                            <img
-                              src={item.image}
-                              alt={item.name}
-                              className="h-full w-full object-cover"
-                            />
+                            {item.mainImageUrl ? (
+                              <img src={item.mainImageUrl} alt={item.productName} className="h-full w-full object-contain p-1" />
+                            ) : (
+                              <div className="h-full w-full flex items-center justify-center text-xl">🐦</div>
+                            )}
                           </div>
                           <div>
-                            <p className="text-sm font-semibold text-gray-900 line-clamp-1 max-w-[120px]">{item.name}</p>
-                            <p className="text-xs text-gray-500">{item.color} · {item.size} · ×{item.quantity}</p>
+                            <p className="text-sm font-semibold text-gray-900 line-clamp-1 max-w-[120px]">{item.productName}</p>
+                            <p className="text-xs text-gray-500">
+                              {[item.size, item.productColor].filter(Boolean).join(" · ")} · ×{item.quantity}
+                            </p>
                           </div>
                         </div>
                       ))}

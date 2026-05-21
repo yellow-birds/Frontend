@@ -57,12 +57,18 @@ export default function OrderTrackingPage() {
       <div className="space-y-3">
         {order.items.map((item, i) => (
           <div key={i} className="flex gap-3 p-3 rounded-lg border bg-card">
-            <img src={item.image} alt={item.name} className="h-14 w-14 rounded-md object-cover border" />
-            <div className="flex-1">
-              <p className="font-medium text-sm">{item.name}</p>
-              <p className="text-xs text-muted-foreground">{item.color} / {item.size} × {item.quantity}</p>
+            <div className="h-14 w-14 rounded-md border bg-gray-50 shrink-0 overflow-hidden">
+              {item.mainImageUrl ? (
+                <img src={item.mainImageUrl} alt={item.productName} className="h-full w-full object-contain p-1" />
+              ) : (
+                <div className="h-full w-full flex items-center justify-center text-xl">🐦</div>
+              )}
             </div>
-            <p className="font-semibold text-sm">${(item.unitPrice * item.quantity).toFixed(2)}</p>
+            <div className="flex-1">
+              <p className="font-medium text-sm">{item.productName}</p>
+              <p className="text-xs text-muted-foreground">{item.productColor}{item.size ? ` / ${item.size}` : ""} × {item.quantity}</p>
+            </div>
+            <p className="font-semibold text-sm">${item.subtotal.toFixed(2)}</p>
           </div>
         ))}
       </div>

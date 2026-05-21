@@ -4,10 +4,11 @@ import type { CartItem } from "~/types";
 
 interface CartStore {
   items: CartItem[];
-  addItem: (item: CartItem) => void;
+  addItem: (item: CartItem) => boolean; // returns false if already in cart
   removeItem: (variantId: string) => void;
   updateQuantity: (variantId: string, quantity: number) => void;
   clearCart: () => void;
+  isInCart: (variantId: string) => boolean;
   totalItems: () => number;
   totalPrice: () => number;
 }
@@ -18,21 +19,10 @@ export const useCartStore = create<CartStore>()(
       items: [],
 
       addItem(item) {
-        set((state) => {
-          const existing = state.items.find(
-            (i) => i.variantId === item.variantId
-          );
-          if (existing) {
-            return {
-              items: state.items.map((i) =>
-                i.variantId === item.variantId
-                  ? { ...i, quantity: i.quantity + item.quantity }
-                  : i
-              ),
-            };
-          }
-          return { items: [...state.items, item] };
-        });
+        const existing = get().items.find((i) => i.variantId === item.variantId);
+        if (existing) return false; // already in cart — caller shows toast
+        set((state) => ({ items: [...state.items, item] }));
+        return true;
       },
 
       removeItem(variantId) {
@@ -55,6 +45,10 @@ export const useCartStore = create<CartStore>()(
 
       clearCart() {
         set({ items: [] });
+      },
+
+      isInCart(variantId) {
+        return get().items.some((i) => i.variantId === variantId);
       },
 
       totalItems() {

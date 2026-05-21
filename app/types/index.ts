@@ -54,23 +54,28 @@ export type OrderStatus =
   | "CANCELLED";
 
 export interface OrderItem {
+  id: string;
   productId: string;
-  variantId: string;
-  name: string;
-  image: string;
-  color: string;
-  size: string;
+  productName: string;
+  productCode: string;
+  productColor: string;
+  mainImageUrl: string;
+  size: string | null;
   quantity: number;
   unitPrice: number;
+  subtotal: number;
 }
 
 export interface Order {
   id: string;
   userId: string;
-  items: OrderItem[];
+  customerFirstName: string;
+  customerLastName: string;
+  customerEmail: string;
   status: OrderStatus;
+  items: OrderItem[];
+  customerNotes: string | null;
   totalAmount: number;
-  shippingAddress: Address;
   createdAt: string;
   updatedAt: string;
 }
