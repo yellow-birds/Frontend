@@ -1,18 +1,11 @@
 import { Link } from "react-router";
 import { useQuery } from "@tanstack/react-query";
-import { Star } from "lucide-react";
+import { Star, ArrowRight } from "lucide-react";
 import { useState } from "react";
 import { searchProductsQuery } from "~/queries/products";
 import { categoriesQuery } from "~/queries/categories";
 import { ProductCard } from "~/components/storefront/product-card";
-
-const FEATURES = [
-  { icon: "🌍", title: "1000+ Custom Products" },
-  { icon: "✅", title: "High Quality. No Minimums!" },
-  { icon: "💰", title: "Up to 40% Bulk Discounts!" },
-  { icon: "🚀", title: "Fast & Free Shipping - Global Delivery. On-time!" },
-  { icon: "💬", title: "Worry Free! Instant 24/7 Support" },
-];
+import type { ProductResponse } from "~/queries/products";
 
 const BRANDS = [
   "Google", "Microsoft", "Amazon", "Nike", "Apple",
@@ -55,90 +48,191 @@ const PRODUCT_TABS = [
   { id: "new_arrivals", label: "New Arrivals" },
 ] as const;
 
+function HeroProductTile({ product, className = "" }: { product: ProductResponse; className?: string }) {
+  const [imgError, setImgError] = useState(false);
+  return (
+    <Link
+      to={`/merchandise/${product.id}`}
+      className={`group relative overflow-hidden rounded-2xl bg-gray-800 block ${className}`}
+    >
+      {product.mainImageUrl && !imgError ? (
+        <img
+          src={product.mainImageUrl}
+          alt={product.name}
+          onError={() => setImgError(true)}
+          className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+        />
+      ) : (
+        <div
+          className="w-full h-full flex items-center justify-center"
+          style={{ backgroundColor: product.productColor || "#374151" }}
+        >
+          <span className="text-4xl">🐦</span>
+        </div>
+      )}
+      {/* overlay on hover */}
+      <div className="absolute inset-0 bg-black/0 group-hover:bg-black/30 transition-all duration-300" />
+      {/* bottom label */}
+      <div className="absolute bottom-0 left-0 right-0 p-2.5 translate-y-full group-hover:translate-y-0 transition-transform duration-300 bg-gradient-to-t from-black/80 to-transparent">
+        <p className="text-white text-xs font-bold truncate">{product.name}</p>
+        <p className="text-yellow-400 text-[10px] font-semibold uppercase tracking-wider">{product.categoryName}</p>
+      </div>
+    </Link>
+  );
+}
+
+function HeroProductSkeleton({ className = "" }: { className?: string }) {
+  return <div className={`rounded-2xl bg-gray-700/50 animate-pulse ${className}`} />;
+}
+
 export default function Home() {
   const [activeTab, setActiveTab] = useState<"best_sellers" | "new_arrivals">("best_sellers");
-  const { data: productsData } = useQuery(searchProductsQuery({ page: 1, hitsPerPage: 8 }));
+  const { data: productsData, isLoading: productsLoading } = useQuery(searchProductsQuery({ page: 1, hitsPerPage: 12 }));
   const { data: categories = [] } = useQuery(categoriesQuery);
 
   const allProducts = productsData?.hits ?? [];
   const newArrivals = [...allProducts].sort(
     (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
   );
-
   const tabProducts = activeTab === "best_sellers" ? allProducts : newArrivals;
+
+  // Hero gets first 5 products for the mosaic
+  const heroProducts = allProducts.slice(0, 5);
 
   return (
     <div className="bg-white">
       {/* ── Hero ─────────────────────────────────────────────────────────────── */}
-      <section
-        className="relative bg-gradient-to-r from-gray-900 via-gray-800 to-gray-900 text-white overflow-hidden"
-        style={{ minHeight: "480px" }}
-      >
-        {/* background pattern */}
-        <div className="absolute inset-0 opacity-10"
-          style={{ backgroundImage: "radial-gradient(circle at 2px 2px, white 1px, transparent 0)", backgroundSize: "40px 40px" }}
+      <section className="relative bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900 text-white overflow-hidden min-h-[88vh] flex items-center">
+        {/* dot grid pattern */}
+        <div
+          className="absolute inset-0 opacity-10"
+          style={{ backgroundImage: "radial-gradient(circle at 2px 2px, white 1px, transparent 0)", backgroundSize: "36px 36px" }}
         />
 
-        <div className="relative max-w-screen-xl mx-auto px-4 lg:px-8 py-16 md:py-24 flex flex-col md:flex-row items-center gap-10">
-          {/* Left: text */}
-          <div className="flex-1 text-center md:text-left">
+        <div className="relative max-w-screen-xl mx-auto px-4 lg:px-8 py-14 w-full grid grid-cols-1 lg:grid-cols-2 gap-10 items-center">
+          {/* ── Left: copy ── */}
+          <div>
             {/* Stars */}
-            <div className="flex items-center justify-center md:justify-start gap-1 mb-4">
+            <div className="flex items-center gap-1.5 mb-5">
               {[...Array(5)].map((_, i) => (
-                <Star key={i} className="h-5 w-5 text-yellow-400 fill-yellow-400" />
+                <Star key={i} className="h-4.5 w-4.5 h-[18px] w-[18px] text-yellow-400 fill-yellow-400" />
               ))}
-              <span className="ml-2 text-base font-semibold text-yellow-300">50,000+ Happy Customers</span>
+              <span className="ml-1.5 text-sm font-semibold text-yellow-300">50,000+ Happy Customers</span>
             </div>
 
-            <h1 className="text-4xl md:text-5xl lg:text-6xl font-extrabold leading-tight mb-6">
+            <h1 className="text-4xl sm:text-5xl xl:text-6xl font-extrabold leading-tight mb-5">
               Custom T-shirts,<br />
-              <span className="text-yellow-400">Merchandise</span> &amp; Gifts
+              <span className="text-yellow-400">Merchandise</span><br />
+              &amp; Gifts
             </h1>
 
-            <ul className="space-y-2.5 mb-8 text-left inline-block">
-              {FEATURES.map((f) => (
-                <li key={f.title} className="flex items-center gap-3 text-base text-gray-200">
-                  <span className="text-xl">{f.icon}</span>
-                  <span>{f.title}</span>
+            <p className="text-gray-300 text-lg mb-6 max-w-md">
+              Premium quality branded merchandise. No minimums, free global shipping, up to 40% bulk discounts.
+            </p>
+
+            <ul className="space-y-2 mb-8">
+              {[
+                { icon: "✅", text: "High Quality. No Minimums!" },
+                { icon: "💰", text: "Up to 40% Bulk Discounts!" },
+                { icon: "🚀", text: "Fast & Free Shipping — Global Delivery" },
+                { icon: "💬", text: "24/7 Expert Support" },
+              ].map((f) => (
+                <li key={f.text} className="flex items-center gap-3 text-sm text-gray-200">
+                  <span>{f.icon}</span>
+                  <span>{f.text}</span>
                 </li>
               ))}
             </ul>
 
-            <div className="flex flex-col sm:flex-row gap-3 justify-center md:justify-start">
+            <div className="flex flex-wrap gap-3">
               <Link
                 to="/merchandise"
-                className="inline-flex items-center justify-center bg-yellow-400 hover:bg-yellow-300 text-black font-extrabold text-base px-10 py-4 rounded-full uppercase tracking-wide transition-all hover:shadow-xl hover:-translate-y-0.5"
+                className="inline-flex items-center gap-2 bg-yellow-400 hover:bg-yellow-300 text-black font-extrabold text-sm px-8 py-4 rounded-full uppercase tracking-wide transition-all hover:shadow-xl hover:-translate-y-0.5"
               >
-                CUSTOMIZE NOW
+                Shop Now
+                <ArrowRight className="h-4 w-4" />
               </Link>
               <Link
-                to="/merchandise?sort=best_seller"
-                className="inline-flex items-center justify-center border-2 border-white hover:bg-white hover:text-gray-900 text-white font-bold text-base px-8 py-4 rounded-full uppercase tracking-wide transition-all"
+                to="/merchandise?sort=newest"
+                className="inline-flex items-center gap-2 border-2 border-white/30 hover:border-white hover:bg-white/10 text-white font-bold text-sm px-8 py-4 rounded-full uppercase tracking-wide transition-all"
               >
-                Best Sellers
+                New Arrivals
               </Link>
             </div>
           </div>
 
-          {/* Right: feature image */}
-          <div className="flex-1 flex justify-center md:justify-end">
-            <div className="relative">
-              <img
-                src="https://picsum.photos/seed/hero-merch/520/420"
-                alt="Custom merchandise"
-                className="rounded-2xl shadow-2xl w-full max-w-md object-cover"
-              />
-              <div className="absolute -bottom-4 -left-4 bg-yellow-400 text-black rounded-2xl px-4 py-3 shadow-lg">
-                <p className="font-extrabold text-2xl leading-none">40%</p>
-                <p className="text-xs font-bold uppercase">Bulk Discount</p>
-              </div>
-              <div className="absolute -top-4 -right-4 bg-white text-gray-900 rounded-2xl px-4 py-3 shadow-lg">
-                <p className="font-extrabold text-lg leading-none">1000+</p>
-                <p className="text-xs font-bold uppercase text-gray-600">Products</p>
-              </div>
-            </div>
+          {/* ── Right: live product mosaic ── */}
+          <div className="hidden lg:grid grid-cols-3 grid-rows-2 gap-3 h-[520px]">
+            {/* Big tile: col 1, spans 2 rows */}
+            {productsLoading ? (
+              <HeroProductSkeleton className="col-span-1 row-span-2" />
+            ) : heroProducts[0] ? (
+              <HeroProductTile product={heroProducts[0]} className="col-span-1 row-span-2" />
+            ) : (
+              <div className="col-span-1 row-span-2 rounded-2xl bg-gray-700/40" />
+            )}
+
+            {/* Top-right 2 tiles */}
+            {productsLoading ? (
+              <>
+                <HeroProductSkeleton className="col-span-1" />
+                <HeroProductSkeleton className="col-span-1" />
+              </>
+            ) : (
+              <>
+                {heroProducts[1] ? (
+                  <HeroProductTile product={heroProducts[1]} className="col-span-1" />
+                ) : (
+                  <div className="rounded-2xl bg-gray-700/40" />
+                )}
+                {heroProducts[2] ? (
+                  <HeroProductTile product={heroProducts[2]} className="col-span-1" />
+                ) : (
+                  <div className="rounded-2xl bg-gray-700/40" />
+                )}
+              </>
+            )}
+
+            {/* Bottom-right 2 tiles */}
+            {productsLoading ? (
+              <>
+                <HeroProductSkeleton className="col-span-1" />
+                <HeroProductSkeleton className="col-span-1" />
+              </>
+            ) : (
+              <>
+                {heroProducts[3] ? (
+                  <HeroProductTile product={heroProducts[3]} className="col-span-1" />
+                ) : (
+                  <div className="rounded-2xl bg-gray-700/40" />
+                )}
+                {heroProducts[4] ? (
+                  <HeroProductTile product={heroProducts[4]} className="col-span-1" />
+                ) : (
+                  <div className="rounded-2xl bg-gray-700/40" />
+                )}
+              </>
+            )}
+          </div>
+
+          {/* Mobile: show 2 product tiles side by side below the copy */}
+          <div className="grid grid-cols-2 gap-3 h-44 lg:hidden">
+            {productsLoading ? (
+              <>
+                <HeroProductSkeleton className="col-span-1" />
+                <HeroProductSkeleton className="col-span-1" />
+              </>
+            ) : (
+              <>
+                {heroProducts[0] && <HeroProductTile product={heroProducts[0]} className="col-span-1" />}
+                {heroProducts[1] && <HeroProductTile product={heroProducts[1]} className="col-span-1" />}
+              </>
+            )}
           </div>
         </div>
+
+        {/* bottom fade */}
+        <div className="absolute bottom-0 left-0 right-0 h-16 bg-gradient-to-t from-white/5 to-transparent pointer-events-none" />
       </section>
 
       {/* ── Stats bar ────────────────────────────────────────────────────────── */}
@@ -209,7 +303,7 @@ export default function Home() {
             </div>
           )}
 
-          {/* Best Sellers tile */}
+          {/* All Products tile */}
           <Link
             to="/merchandise"
             className="group bg-yellow-400 border border-yellow-400 rounded-2xl overflow-hidden hover:shadow-lg transition-all duration-200 hover:-translate-y-1 flex flex-col"
@@ -239,7 +333,6 @@ export default function Home() {
       <section className="bg-gray-50 py-14 border-y border-gray-100">
         <div className="max-w-screen-xl mx-auto px-4 lg:px-8">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-8">
-            {/* Tabs */}
             <div className="flex items-center gap-1 bg-white border border-gray-200 rounded-2xl p-1 w-fit">
               {PRODUCT_TABS.map((tab) => (
                 <button
