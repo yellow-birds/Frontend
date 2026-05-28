@@ -50,20 +50,42 @@ export const productsQuery = queryOptions({
   queryFn: () => api.get<ProductResponse[]>("/api/products"),
 });
 
-// Filtered search — used by storefront
+// Filtered search — uses /api/products with client-side filtering/pagination
 export const searchProductsQuery = (params: SearchProductsParams) =>
   queryOptions({
     queryKey: productKeys.search(params),
-    queryFn: () =>
-      api.get<SearchResultPaginated>("/api/search/products", {
-        q: params.q ?? "",
-        categoryId: params.categoryId,
-        color: params.color,
-        page: params.page ?? 1,
-        hitsPerPage: params.hitsPerPage ?? 20,
-        minPrice: params.minPrice,
-        maxPrice: params.maxPrice,
-      }),
+    queryFn: async (): Promise<SearchResultPaginated> => {
+      const all = await api.get<ProductResponse[]>("/api/products");
+
+      // Client-side filtering
+      let hits = all;
+      if (params.q) {
+        const q = params.q.toLowerCase();
+        hits = hits.filter((p) => p.name.toLowerCase().includes(q) || p.code.toLowerCase().includes(q));
+      }
+      if (params.categoryId) {
+        hits = hits.filter((p) => p.categoryId === params.categoryId);
+      }
+      if (params.color) {
+        hits = hits.filter((p) => p.productColor === params.color);
+      }
+      if (params.minPrice != null) {
+        hits = hits.filter((p) => p.salePrice >= params.minPrice!);
+      }
+      if (params.maxPrice != null) {
+        hits = hits.filter((p) => p.salePrice <= params.maxPrice!);
+      }
+
+      // Client-side pagination
+      const page = params.page ?? 1;
+      const hitsPerPage = params.hitsPerPage ?? 20;
+      const totalHits = hits.length;
+      const totalPages = Math.max(1, Math.ceil(totalHits / hitsPerPage));
+      const start = (page - 1) * hitsPerPage;
+      const paginated = hits.slice(start, start + hitsPerPage);
+
+      return { totalHits, hitsPerPage, page, totalPages, hits: paginated };
+    },
   });
 
 export const productDetailQuery = (id: string) =>
